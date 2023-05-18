@@ -65,9 +65,10 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 }
 
 type GrpcStreamDecoratorConfiguration struct {
-	Ctx         context.Context
-	Stream      grpc.ServerStream
-	ChannelSize *int
+	Ctx          context.Context
+	ServerStream *grpc.ServerStream
+	ClientStream *grpc.ClientStream
+	ChannelSize  *int
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -81,9 +82,22 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 		return nil, errors.New("channel size should be greater than zero")
 	}
 
+	if config.ServerStream == nil && config.ClientStream == nil {
+		return nil, errors.New("server or client stream expected")
+	}
+
+	var source receive.IMessageReceive
+	if config.ServerStream != nil {
+		source = *config.ServerStream
+	}
+
+	if config.ClientStream != nil {
+		source = *config.ClientStream
+	}
+
 	return receive.NewGrpcStreamDecorator[T](
 		config.Ctx,
-		config.Stream,
+		source,
 		size,
 	), nil
 }

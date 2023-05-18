@@ -3,20 +3,23 @@ package receive
 import (
 	"context"
 	"errors"
-	"google.golang.org/grpc"
 )
 
 type GrpcStreamDecorator[T interface{}] struct {
-	stream          grpc.ServerStream
+	stream          IMessageReceive
 	ctx             context.Context
 	streamChannel   *chan T
 	channelSize     int
 	terminationFunc context.CancelFunc
 }
 
+type IMessageReceive interface {
+	RecvMsg(m interface{}) error
+}
+
 func NewGrpcStreamDecorator[T interface{}](
 	ctx context.Context,
-	stream grpc.ServerStream,
+	stream IMessageReceive,
 	channelSize int,
 ) *GrpcStreamDecorator[T] {
 	internalCtx, cancelFunc := context.WithCancel(ctx)
