@@ -9,8 +9,8 @@ import (
 )
 
 type GrpcClient[T interface{}] struct {
-	grpcServerStream           *grpc.ServerStream
-	grpcClientStream           *grpc.ClientStream
+	grpcServerStream           grpc.ServerStream
+	grpcClientStream           grpc.ClientStream
 	messageReceived            func(ctx context.Context, grpcClient *GrpcClient[T], msg *T) error
 	errorHandler               func(grpcClient *GrpcClient[T], err error) error
 	cancelCtx                  context.CancelFunc
@@ -22,8 +22,8 @@ type GrpcClient[T interface{}] struct {
 
 func NewGrpcClient[T interface{}](
 	ctx context.Context,
-	grpcServerStream *grpc.ServerStream,
-	grpcClientStream *grpc.ClientStream,
+	grpcServerStream grpc.ServerStream,
+	grpcClientStream grpc.ClientStream,
 	messageCallback func(ctx context.Context, grpcClient *GrpcClient[T], msg *T) error,
 	errorCallback func(grpcClient *GrpcClient[T], err error) error,
 	skipMessagesUntilClientIdNotSet bool,
@@ -84,9 +84,9 @@ func (gc *GrpcClient[T]) Listen() error {
 		var streamCtx context.Context
 
 		if gc.grpcServerStream != nil {
-			streamCtx = (*gc.grpcServerStream).Context()
+			streamCtx = gc.grpcServerStream.Context()
 		} else {
-			streamCtx = (*gc.grpcClientStream).Context()
+			streamCtx = gc.grpcClientStream.Context()
 		}
 
 		for {

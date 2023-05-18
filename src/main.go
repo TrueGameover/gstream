@@ -66,8 +66,8 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 
 type GrpcStreamDecoratorConfiguration struct {
 	Ctx          context.Context
-	ServerStream *grpc.ServerStream
-	ClientStream *grpc.ClientStream
+	ServerStream grpc.ServerStream
+	ClientStream grpc.ClientStream
 	ChannelSize  *int
 }
 
@@ -92,8 +92,8 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 
 type GrpcClientConfiguration[T interface{}] struct {
 	Ctx                           context.Context
-	ServerStream                  *grpc.ServerStream
-	ClientStream                  *grpc.ClientStream
+	ServerStream                  grpc.ServerStream
+	ClientStream                  grpc.ClientStream
 	MessagesCallback              func(ctx context.Context, grpcClient *client.GrpcClient[T], msg *T) error
 	ErrorsCallback                *func(grpcClient *client.GrpcClient[T], err error) error
 	SkipMessagesIfClientWithoutId *bool

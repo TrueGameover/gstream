@@ -7,8 +7,8 @@ import (
 )
 
 type GrpcStreamDecorator[T interface{}] struct {
-	grpcClientStream *grpc.ClientStream
-	grpcServerStream *grpc.ServerStream
+	grpcClientStream grpc.ClientStream
+	grpcServerStream grpc.ServerStream
 	ctx              context.Context
 	streamChannel    *chan T
 	channelSize      int
@@ -22,8 +22,8 @@ type recvMessage interface {
 func NewGrpcStreamDecorator[T interface{}](
 	ctx context.Context,
 	channelSize int,
-	grpcClientStream *grpc.ClientStream,
-	grpcServerStream *grpc.ServerStream,
+	grpcClientStream grpc.ClientStream,
+	grpcServerStream grpc.ServerStream,
 ) (*GrpcStreamDecorator[T], error) {
 	if grpcClientStream == nil && grpcServerStream == nil {
 		return nil, errors.New("client or server stream expected")
@@ -51,9 +51,9 @@ func (w *GrpcStreamDecorator[T]) Fetch() (<-chan T, error) {
 
 	var recv recvMessage
 	if w.grpcServerStream != nil {
-		recv = *w.grpcServerStream
+		recv = w.grpcServerStream
 	} else {
-		recv = *w.grpcClientStream
+		recv = w.grpcClientStream
 	}
 
 	go func() {
