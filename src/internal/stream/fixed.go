@@ -11,11 +11,12 @@ type FixedSizeObserver[T interface{}] struct {
 	maxSize                 int
 	elementsList            *list.List
 	mutex                   *sync.Mutex
-	channelsBag             *list.List
+	subscribersBag          *list.List
 	waitElementsInterval    time.Duration
 	waitSubscribersInterval time.Duration
 	skipElements            bool
 	skipWithoutSubscribers  bool
+	terminationFunc         context.CancelFunc
 }
 
 type channelBag[T interface{}] struct {
@@ -38,25 +39,27 @@ func NewFixedSizeObserver[T interface{}](
 	channelsBagList.Init()
 
 	m := sync.Mutex{}
+	internalCtx, cancel := context.WithCancel(ctx)
 
 	obj := FixedSizeObserver[T]{
 		maxSize:                 maxSize,
 		elementsList:            l,
 		mutex:                   &m,
-		channelsBag:             channelsBagList,
+		subscribersBag:          channelsBagList,
 		waitElementsInterval:    waitElementsInterval,
 		waitSubscribersInterval: waitSubscribersInterval,
 		skipElements:            skipElements,
 		skipWithoutSubscribers:  skipWithoutSubscribers,
+		terminationFunc:         cancel,
 	}
 
-	go obj.dispatchToChannels(ctx)
+	go obj.dispatchToChannels(internalCtx)
 
 	return &obj
 }
 
 func (q *FixedSizeObserver[T]) Publish(element T) {
-	if q.channelsBag.Len() == 0 && q.skipWithoutSubscribers {
+	if q.subscribersBag.Len() == 0 && q.skipWithoutSubscribers {
 		return
 	}
 
@@ -108,7 +111,7 @@ func (q *FixedSizeObserver[T]) removeBagAndGoNext(element *list.Element, value *
 	}
 
 	nextElement := element.Next()
-	q.channelsBag.Remove(element)
+	q.subscribersBag.Remove(element)
 	return nextElement
 }
 
@@ -120,7 +123,7 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 		default:
 		}
 
-		if q.channelsBag.Len() == 0 {
+		if q.subscribersBag.Len() == 0 {
 			time.Sleep(q.waitSubscribersInterval)
 			continue
 		}
@@ -132,19 +135,19 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 			continue
 		}
 
-		element := q.channelsBag.Front()
+		subscriber := q.subscribersBag.Front()
 		hasReceivers := false
-		for element != nil {
-			bag, ok := element.Value.(channelBag[T])
+		for subscriber != nil {
+			bag, ok := subscriber.Value.(channelBag[T])
 
 			if !ok {
-				element = q.removeBagAndGoNext(element, nil)
+				subscriber = q.removeBagAndGoNext(subscriber, nil)
 				continue
 			}
 
 			select {
 			case <-bag.ctx.Done():
-				element = q.removeBagAndGoNext(element, &bag)
+				subscriber = q.removeBagAndGoNext(subscriber, &bag)
 				continue
 			default:
 			}
@@ -156,7 +159,7 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 			default:
 			}
 
-			element = element.Next()
+			subscriber = subscriber.Next()
 		}
 
 		if !hasReceivers && !q.skipElements {
@@ -168,7 +171,7 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 
 func (q *FixedSizeObserver[T]) Subscribe(ctx context.Context) <-chan T {
 	elementsChannel := make(chan T, q.maxSize)
-	q.channelsBag.PushBack(channelBag[T]{
+	q.subscribersBag.PushBack(channelBag[T]{
 		ch:  elementsChannel,
 		ctx: ctx,
 	})
@@ -178,4 +181,17 @@ func (q *FixedSizeObserver[T]) Subscribe(ctx context.Context) <-chan T {
 
 func (q *FixedSizeObserver[T]) GetLength() int {
 	return q.elementsList.Len()
+}
+
+func (q *FixedSizeObserver[T]) Release() {
+	q.terminationFunc()
+
+	subscriber := q.subscribersBag.Front()
+	for subscriber != nil {
+		bag, ok := subscriber.Value.(channelBag[T])
+
+		if ok {
+			subscriber = q.removeBagAndGoNext(subscriber, &bag)
+		}
+	}
 }
