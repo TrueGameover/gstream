@@ -3,6 +3,7 @@ package gstream
 import (
 	"context"
 	"errors"
+	"github.com/TrueGameover/gstream/src/internal/client"
 	"github.com/TrueGameover/gstream/src/internal/client/receive"
 	"github.com/TrueGameover/gstream/src/internal/stream"
 	"google.golang.org/grpc"
@@ -83,6 +84,44 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 	return receive.NewGrpcStreamDecorator[T](
 		config.Ctx,
 		config.Stream,
+		size,
+	), nil
+}
+
+type GrpcClientConfiguration[T interface{}] struct {
+	Ctx                           context.Context
+	ServerStream                  grpc.ServerStream
+	MessagesCallback              func(ctx context.Context, grpcClient *client.GrpcClient[T], msg *T) error
+	ErrorsCallback                *func(grpcClient *client.GrpcClient[T], err error) error
+	SkipMessagesIfClientWithoutId *bool
+	MessagesChannelSize           *int
+}
+
+//goland:noinspection GoUnusedExportedFunction
+func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (*client.GrpcClient[T], error) {
+	errCallback := func(grpcClient *client.GrpcClient[T], err error) error {
+		return err
+	}
+	if config.ErrorsCallback != nil {
+		errCallback = *config.ErrorsCallback
+	}
+
+	skip := false
+	if config.SkipMessagesIfClientWithoutId != nil {
+		skip = *config.SkipMessagesIfClientWithoutId
+	}
+
+	size := 100
+	if config.MessagesChannelSize != nil {
+		size = *config.MessagesChannelSize
+	}
+
+	return client.NewGrpcClient(
+		config.Ctx,
+		config.ServerStream,
+		config.MessagesCallback,
+		errCallback,
+		skip,
 		size,
 	), nil
 }
