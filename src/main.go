@@ -82,29 +82,18 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 		return nil, errors.New("channel size should be greater than zero")
 	}
 
-	if config.ServerStream == nil && config.ClientStream == nil {
-		return nil, errors.New("server or client stream expected")
-	}
-
-	var source receive.IMessageReceive
-	if config.ServerStream != nil {
-		source = *config.ServerStream
-	}
-
-	if config.ClientStream != nil {
-		source = *config.ClientStream
-	}
-
 	return receive.NewGrpcStreamDecorator[T](
 		config.Ctx,
-		source,
 		size,
-	), nil
+		config.ClientStream,
+		config.ServerStream,
+	)
 }
 
 type GrpcClientConfiguration[T interface{}] struct {
 	Ctx                           context.Context
-	ServerStream                  grpc.ServerStream
+	ServerStream                  *grpc.ServerStream
+	ClientStream                  *grpc.ClientStream
 	MessagesCallback              func(ctx context.Context, grpcClient *client.GrpcClient[T], msg *T) error
 	ErrorsCallback                *func(grpcClient *client.GrpcClient[T], err error) error
 	SkipMessagesIfClientWithoutId *bool
@@ -133,6 +122,7 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (*client.Gr
 	return client.NewGrpcClient(
 		config.Ctx,
 		config.ServerStream,
+		config.ClientStream,
 		config.MessagesCallback,
 		errCallback,
 		skip,

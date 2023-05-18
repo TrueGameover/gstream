@@ -3,33 +3,42 @@ package receive
 import (
 	"context"
 	"errors"
+	"google.golang.org/grpc"
 )
 
 type GrpcStreamDecorator[T interface{}] struct {
-	stream          IMessageReceive
-	ctx             context.Context
-	streamChannel   *chan T
-	channelSize     int
-	terminationFunc context.CancelFunc
+	grpcClientStream *grpc.ClientStream
+	grpcServerStream *grpc.ServerStream
+	ctx              context.Context
+	streamChannel    *chan T
+	channelSize      int
+	terminationFunc  context.CancelFunc
 }
 
-type IMessageReceive interface {
+type recvMessage interface {
 	RecvMsg(m interface{}) error
 }
 
 func NewGrpcStreamDecorator[T interface{}](
 	ctx context.Context,
-	stream IMessageReceive,
 	channelSize int,
-) *GrpcStreamDecorator[T] {
+	grpcClientStream *grpc.ClientStream,
+	grpcServerStream *grpc.ServerStream,
+) (*GrpcStreamDecorator[T], error) {
+	if grpcClientStream == nil && grpcServerStream == nil {
+		return nil, errors.New("client or server stream expected")
+	}
+
 	internalCtx, cancelFunc := context.WithCancel(ctx)
 
 	return &GrpcStreamDecorator[T]{
-		stream:          stream,
-		ctx:             internalCtx,
-		channelSize:     channelSize,
-		terminationFunc: cancelFunc,
-	}
+		grpcClientStream: grpcClientStream,
+		grpcServerStream: grpcServerStream,
+		ctx:              internalCtx,
+		streamChannel:    nil,
+		channelSize:      channelSize,
+		terminationFunc:  cancelFunc,
+	}, nil
 }
 
 func (w *GrpcStreamDecorator[T]) Fetch() (<-chan T, error) {
@@ -40,12 +49,19 @@ func (w *GrpcStreamDecorator[T]) Fetch() (<-chan T, error) {
 	channel := make(chan T, w.channelSize)
 	w.streamChannel = &channel
 
+	var recv recvMessage
+	if w.grpcServerStream != nil {
+		recv = *w.grpcServerStream
+	} else {
+		recv = *w.grpcClientStream
+	}
+
 	go func() {
 		defer close(channel)
 
 		for {
 			var msg T
-			err := w.stream.RecvMsg(&msg)
+			err := recv.RecvMsg(&msg)
 
 			if err != nil {
 				return

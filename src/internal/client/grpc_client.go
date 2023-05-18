@@ -9,7 +9,8 @@ import (
 )
 
 type GrpcClient[T interface{}] struct {
-	grpcStream                 grpc.ServerStream
+	grpcServerStream           *grpc.ServerStream
+	grpcClientStream           *grpc.ClientStream
 	messageReceived            func(ctx context.Context, grpcClient *GrpcClient[T], msg *T) error
 	errorHandler               func(grpcClient *GrpcClient[T], err error) error
 	cancelCtx                  context.CancelFunc
@@ -21,21 +22,22 @@ type GrpcClient[T interface{}] struct {
 
 func NewGrpcClient[T interface{}](
 	ctx context.Context,
-	stream grpc.ServerStream,
+	grpcServerStream *grpc.ServerStream,
+	grpcClientStream *grpc.ClientStream,
 	messageCallback func(ctx context.Context, grpcClient *GrpcClient[T], msg *T) error,
 	errorCallback func(grpcClient *GrpcClient[T], err error) error,
 	skipMessagesUntilClientIdNotSet bool,
 	messagesChannelSize int,
-
 ) *GrpcClient[T] {
 	internalCtx, cancel := context.WithCancel(ctx)
 
 	return &GrpcClient[T]{
-		grpcStream:                 stream,
+		grpcServerStream:           grpcServerStream,
+		grpcClientStream:           grpcClientStream,
 		messageReceived:            messageCallback,
+		errorHandler:               errorCallback,
 		cancelCtx:                  cancel,
 		clientContext:              internalCtx,
-		errorHandler:               errorCallback,
 		clientId:                   nil,
 		skipMessagesWhileWithoutId: skipMessagesUntilClientIdNotSet,
 		messagesChannelSize:        messagesChannelSize,
@@ -65,7 +67,11 @@ func (gc *GrpcClient[T]) GetContext() context.Context {
 func (gc *GrpcClient[T]) Listen() error {
 	waitGroup := sync.WaitGroup{}
 
-	streamWrapper := receive.NewGrpcStreamDecorator[T](gc.clientContext, gc.grpcStream, gc.messagesChannelSize)
+	streamWrapper, err := receive.NewGrpcStreamDecorator[T](gc.clientContext, gc.messagesChannelSize, gc.grpcClientStream, gc.grpcServerStream)
+	if err != nil {
+		return err
+	}
+
 	messagesChannel, err := streamWrapper.Fetch()
 	if err != nil {
 		return err
@@ -75,13 +81,19 @@ func (gc *GrpcClient[T]) Listen() error {
 	go func() {
 		defer waitGroup.Done()
 
-		grpcStreamCtx := gc.grpcStream.Context()
+		var streamCtx context.Context
+
+		if gc.grpcServerStream != nil {
+			streamCtx = (*gc.grpcServerStream).Context()
+		} else {
+			streamCtx = (*gc.grpcClientStream).Context()
+		}
 
 		for {
 			select {
 			case <-gc.clientContext.Done():
 				return
-			case <-grpcStreamCtx.Done():
+			case <-streamCtx.Done():
 				return
 			case msg, ok := <-messagesChannel:
 				if !ok {
@@ -104,7 +116,7 @@ func (gc *GrpcClient[T]) Listen() error {
 			select {
 			case <-gc.clientContext.Done():
 				return
-			case <-grpcStreamCtx.Done():
+			case <-streamCtx.Done():
 				return
 			default:
 			}
