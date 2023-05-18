@@ -3,7 +3,9 @@ package gstream
 import (
 	"context"
 	"errors"
+	"github.com/TrueGameover/gstream/src/internal/client/receive"
 	"github.com/TrueGameover/gstream/src/internal/stream"
+	"google.golang.org/grpc"
 	"time"
 )
 
@@ -58,5 +60,29 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 		subscribersWait,
 		skipElements,
 		skipWithoutSubscribers,
+	), nil
+}
+
+type GrpcStreamDecoratorConfiguration struct {
+	Ctx         context.Context
+	Stream      grpc.ServerStream
+	ChannelSize *int
+}
+
+//goland:noinspection GoUnusedExportedFunction
+func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfiguration) (*receive.GrpcStreamDecorator[T], error) {
+	size := 100
+	if config.ChannelSize != nil {
+		size = *config.ChannelSize
+	}
+
+	if size < 1 {
+		return nil, errors.New("channel size should be greater than zero")
+	}
+
+	return receive.NewGrpcStreamDecorator[T](
+		config.Ctx,
+		config.Stream,
+		size,
 	), nil
 }
