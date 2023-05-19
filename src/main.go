@@ -18,9 +18,9 @@ type FixedSizeObserverConfiguration struct {
 	Ctx                      context.Context
 	SubscribersChannelLength *int
 	// SkipOnFail skip not delivered messages or retry delivery them unlimited
-	SkipOnFail *bool
+	SkipOnFail bool
 	// SkipPublishWithoutSubscribers skip element publishing without subscribers
-	SkipPublishWithoutSubscribers *bool
+	SkipPublishWithoutSubscribers bool
 	// ElementsCheckInterval sleep time between checking of elements existence
 	ElementsCheckInterval *time.Duration
 	// SubscribersCheckInterval sleep time between checking of subscribers
@@ -38,11 +38,6 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 		return nil, errors.New("size should be greater than zero")
 	}
 
-	skipElements := false
-	if config.SkipOnFail != nil {
-		skipElements = *config.SkipOnFail
-	}
-
 	elementsWait := time.Millisecond * 10
 	if config.ElementsCheckInterval != nil {
 		elementsWait = *config.ElementsCheckInterval
@@ -53,18 +48,13 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 		subscribersWait = *config.SubscribersCheckInterval
 	}
 
-	skipWithoutSubscribers := false
-	if config.SkipPublishWithoutSubscribers != nil {
-		skipWithoutSubscribers = *config.SkipPublishWithoutSubscribers
-	}
-
 	observer := stream.NewFixedSizeObserver[T](
 		config.Ctx,
 		size,
 		elementsWait,
 		subscribersWait,
-		skipElements,
-		skipWithoutSubscribers,
+		config.SkipOnFail,
+		config.SkipPublishWithoutSubscribers,
 	)
 
 	return (*FixedSizeObserver[T])(observer), nil
@@ -107,7 +97,7 @@ type GrpcClientConfiguration[T interface{}] struct {
 	ClientStream                  grpc.ClientStream
 	MessagesCallback              func(ctx context.Context, grpcClient *client.GrpcClient[T], msg *T) error
 	ErrorsCallback                *func(grpcClient *client.GrpcClient[T], err error) error
-	SkipMessagesIfClientWithoutId *bool
+	SkipMessagesIfClientWithoutId bool
 	MessagesChannelSize           *int
 }
 
@@ -118,11 +108,6 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (*GrpcClien
 	}
 	if config.ErrorsCallback != nil {
 		errCallback = *config.ErrorsCallback
-	}
-
-	skip := false
-	if config.SkipMessagesIfClientWithoutId != nil {
-		skip = *config.SkipMessagesIfClientWithoutId
 	}
 
 	size := 100
@@ -136,7 +121,7 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (*GrpcClien
 		config.ClientStream,
 		config.MessagesCallback,
 		errCallback,
-		skip,
+		config.SkipMessagesIfClientWithoutId,
 		size,
 	)
 
