@@ -28,7 +28,7 @@ type FixedSizeObserverConfiguration struct {
 }
 
 //goland:noinspection GoUnusedExportedFunction
-func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) (*stream.FixedSizeObserver[T], error) {
+func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) (*FixedSizeObserver[T], error) {
 	size := 100
 	if config.SubscribersChannelLength != nil {
 		size = *config.SubscribersChannelLength
@@ -58,14 +58,16 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 		skipWithoutSubscribers = *config.SkipPublishWithoutSubscribers
 	}
 
-	return stream.NewFixedSizeObserver[T](
+	observer := stream.NewFixedSizeObserver[T](
 		config.Ctx,
 		size,
 		elementsWait,
 		subscribersWait,
 		skipElements,
 		skipWithoutSubscribers,
-	), nil
+	)
+
+	return (*FixedSizeObserver[T])(observer), nil
 }
 
 type GrpcStreamDecoratorConfiguration struct {
@@ -76,7 +78,7 @@ type GrpcStreamDecoratorConfiguration struct {
 }
 
 //goland:noinspection GoUnusedExportedFunction
-func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfiguration) (*receive.GrpcStreamDecorator[T], error) {
+func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfiguration) (*GrpcStreamDecorator[T], error) {
 	size := 100
 	if config.ChannelSize != nil {
 		size = *config.ChannelSize
@@ -86,12 +88,17 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 		return nil, errors.New("channel size should be greater than zero")
 	}
 
-	return receive.NewGrpcStreamDecorator[T](
+	streamDec, err := receive.NewGrpcStreamDecorator[T](
 		config.Ctx,
 		size,
 		config.ClientStream,
 		config.ServerStream,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	return (*GrpcStreamDecorator[T])(streamDec), nil
 }
 
 type GrpcClientConfiguration[T interface{}] struct {
@@ -105,7 +112,7 @@ type GrpcClientConfiguration[T interface{}] struct {
 }
 
 //goland:noinspection GoUnusedExportedFunction
-func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (*client.GrpcClient[T], error) {
+func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (*GrpcClient[T], error) {
 	errCallback := func(grpcClient *client.GrpcClient[T], err error) error {
 		return err
 	}
@@ -123,7 +130,7 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (*client.Gr
 		size = *config.MessagesChannelSize
 	}
 
-	return client.NewGrpcClient(
+	cl := client.NewGrpcClient(
 		config.Ctx,
 		config.ServerStream,
 		config.ClientStream,
@@ -131,5 +138,7 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (*client.Gr
 		errCallback,
 		skip,
 		size,
-	), nil
+	)
+
+	return (*GrpcClient[T])(cl), nil
 }
