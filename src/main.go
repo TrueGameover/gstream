@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+type FixedSizeObserver[T interface{}] stream.FixedSizeObserver[T]
+type GrpcStreamDecorator[T interface{}] receive.GrpcStreamDecorator[T]
+type GrpcClient[T interface{}] client.GrpcClient[T]
+
 type FixedSizeObserverConfiguration struct {
 	Ctx                      context.Context
 	SubscribersChannelLength *int
