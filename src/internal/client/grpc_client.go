@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"github.com/TrueGameover/gstream/src/internal/client/receive"
+	"github.com/TrueGameover/gstream/src/types"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"sync"
@@ -11,8 +12,8 @@ import (
 type GrpcClient[T interface{}] struct {
 	grpcServerStream           grpc.ServerStream
 	grpcClientStream           grpc.ClientStream
-	messageReceived            func(ctx context.Context, grpcClient *GrpcClient[T], msg *T) error
-	errorHandler               func(grpcClient *GrpcClient[T], err error) error
+	messageReceived            func(ctx context.Context, grpcClient types.GrpcClient[T], msg *T) error
+	errorHandler               func(grpcClient types.GrpcClient[T], err error) error
 	cancelCtx                  context.CancelFunc
 	clientContext              context.Context
 	clientId                   *uuid.UUID
@@ -24,8 +25,8 @@ func NewGrpcClient[T interface{}](
 	ctx context.Context,
 	grpcServerStream grpc.ServerStream,
 	grpcClientStream grpc.ClientStream,
-	messageCallback func(ctx context.Context, grpcClient *GrpcClient[T], msg *T) error,
-	errorCallback func(grpcClient *GrpcClient[T], err error) error,
+	messageCallback func(ctx context.Context, grpcClient types.GrpcClient[T], msg *T) error,
+	errorCallback func(grpcClient types.GrpcClient[T], err error) error,
 	skipMessagesUntilClientIdNotSet bool,
 	messagesChannelSize int,
 	generateId bool,

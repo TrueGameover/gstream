@@ -6,31 +6,10 @@ import (
 	"github.com/TrueGameover/gstream/src/internal/client"
 	"github.com/TrueGameover/gstream/src/internal/client/receive"
 	"github.com/TrueGameover/gstream/src/internal/stream"
-	"github.com/google/uuid"
+	"github.com/TrueGameover/gstream/src/types"
 	"google.golang.org/grpc"
 	"time"
 )
-
-type FixedSizeObserver[T interface{}] interface {
-	Publish(element T)
-	Subscribe(ctx context.Context) <-chan T
-	GetLength() int
-	Release()
-}
-
-type GrpcClient[T interface{}] interface {
-	GetId() uuid.UUID
-	SetId(id uuid.UUID)
-	HasId() bool
-	Stop()
-	GetContext() context.Context
-	Listen() error
-}
-
-type GrpcStreamDecorator[T interface{}] interface {
-	Fetch() (<-chan T, error)
-	Release()
-}
 
 type FixedSizeObserverConfiguration struct {
 	Ctx                      context.Context
@@ -46,7 +25,7 @@ type FixedSizeObserverConfiguration struct {
 }
 
 //goland:noinspection GoUnusedExportedFunction
-func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) (FixedSizeObserver[T], error) {
+func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) (types.FixedSizeObserver[T], error) {
 	size := 100
 	if config.SubscribersChannelLength != nil {
 		size = *config.SubscribersChannelLength
@@ -86,7 +65,7 @@ type GrpcStreamDecoratorConfiguration struct {
 }
 
 //goland:noinspection GoUnusedExportedFunction
-func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfiguration) (GrpcStreamDecorator[T], error) {
+func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfiguration) (types.GrpcStreamDecorator[T], error) {
 	size := 100
 	if config.ChannelSize != nil {
 		size = *config.ChannelSize
@@ -113,16 +92,16 @@ type GrpcClientConfiguration[T interface{}] struct {
 	Ctx                           context.Context
 	ServerStream                  grpc.ServerStream
 	ClientStream                  grpc.ClientStream
-	MessagesCallback              func(ctx context.Context, grpcClient *client.GrpcClient[T], msg *T) error
-	ErrorsCallback                *func(grpcClient *client.GrpcClient[T], err error) error
+	MessagesCallback              func(ctx context.Context, grpcClient types.GrpcClient[T], msg *T) error
+	ErrorsCallback                *func(grpcClient types.GrpcClient[T], err error) error
 	SkipMessagesIfClientWithoutId bool
 	MessagesChannelSize           *int
 	GenerateId                    bool
 }
 
 //goland:noinspection GoUnusedExportedFunction
-func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (GrpcClient[T], error) {
-	errCallback := func(grpcClient *client.GrpcClient[T], err error) error {
+func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (types.GrpcClient[T], error) {
+	errCallback := func(grpcClient types.GrpcClient[T], err error) error {
 		return err
 	}
 	if config.ErrorsCallback != nil {
