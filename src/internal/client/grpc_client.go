@@ -28,8 +28,15 @@ func NewGrpcClient[T interface{}](
 	errorCallback func(grpcClient *GrpcClient[T], err error) error,
 	skipMessagesUntilClientIdNotSet bool,
 	messagesChannelSize int,
+	generateId bool,
 ) *GrpcClient[T] {
 	internalCtx, cancel := context.WithCancel(ctx)
+
+	var id *uuid.UUID
+	if generateId {
+		d := uuid.New()
+		id = &d
+	}
 
 	return &GrpcClient[T]{
 		grpcServerStream:           grpcServerStream,
@@ -38,7 +45,7 @@ func NewGrpcClient[T interface{}](
 		errorHandler:               errorCallback,
 		cancelCtx:                  cancel,
 		clientContext:              internalCtx,
-		clientId:                   nil,
+		clientId:                   id,
 		skipMessagesWhileWithoutId: skipMessagesUntilClientIdNotSet,
 		messagesChannelSize:        messagesChannelSize,
 	}

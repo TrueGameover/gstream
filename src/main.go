@@ -117,6 +117,7 @@ type GrpcClientConfiguration[T interface{}] struct {
 	ErrorsCallback                *func(grpcClient *client.GrpcClient[T], err error) error
 	SkipMessagesIfClientWithoutId bool
 	MessagesChannelSize           *int
+	GenerateId                    bool
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -141,6 +142,7 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (GrpcClient
 		errCallback,
 		config.SkipMessagesIfClientWithoutId,
 		size,
+		config.GenerateId,
 	)
 
 	return cl, nil
