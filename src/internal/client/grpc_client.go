@@ -81,7 +81,13 @@ func (gc *GrpcClient[T]) Listen() error {
 		gc.grpcClientStream,
 		gc.grpcServerStream,
 		func(msg interface{}) T {
-			return msg
+			targetType, ok := msg.(T)
+			if ok {
+				return targetType
+			}
+
+			var empty T
+			return empty
 		},
 	)
 	if err != nil {

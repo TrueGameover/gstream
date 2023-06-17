@@ -78,7 +78,13 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 
 	if config.MappingFunc == nil {
 		config.MappingFunc = func(msg interface{}) T {
-			return msg
+			targetType, ok := msg.(T)
+			if ok {
+				return targetType
+			}
+
+			var empty T
+			return empty
 		}
 	}
 
