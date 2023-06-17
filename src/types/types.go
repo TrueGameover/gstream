@@ -21,7 +21,7 @@ type GrpcClient[T interface{}] interface {
 	Listen() error
 }
 
-type GrpcStreamDecorator[T interface{}] interface {
-	Fetch() (<-chan T, error)
+type GrpcStreamDecorator[I interface{}, O interface{}] interface {
+	Fetch() (<-chan O, error)
 	Release()
 }

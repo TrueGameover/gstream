@@ -75,20 +75,12 @@ func (gc *GrpcClient[T]) GetContext() context.Context {
 func (gc *GrpcClient[T]) Listen() error {
 	waitGroup := sync.WaitGroup{}
 
-	streamWrapper, err := receive.NewGrpcStreamDecorator[T](
+	streamWrapper, err := receive.NewGrpcStreamDecorator[T, T](
 		gc.clientContext,
 		gc.messagesChannelSize,
 		gc.grpcClientStream,
 		gc.grpcServerStream,
-		func(msg interface{}) T {
-			targetType, ok := msg.(T)
-			if ok {
-				return targetType
-			}
-
-			var empty T
-			return empty
-		},
+		nil,
 		func(err error) error {
 			return gc.errorHandler(gc, err)
 		},

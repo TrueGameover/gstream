@@ -6,14 +6,14 @@ import (
 	"google.golang.org/grpc"
 )
 
-type GrpcStreamDecorator[T interface{}] struct {
+type GrpcStreamDecorator[I interface{}, O interface{}] struct {
 	grpcClientStream grpc.ClientStream
 	grpcServerStream grpc.ServerStream
 	ctx              context.Context
-	streamChannel    *chan T
+	streamChannel    *chan O
 	channelSize      int
 	terminationFunc  context.CancelFunc
-	mapFunc          func(msg interface{}) T
+	mapFunc          func(msg I) O
 	errorCallback    func(err error) error
 }
 
@@ -21,14 +21,14 @@ type recvMessage interface {
 	RecvMsg(m interface{}) error
 }
 
-func NewGrpcStreamDecorator[T interface{}](
+func NewGrpcStreamDecorator[I interface{}, O interface{}](
 	ctx context.Context,
 	channelSize int,
 	grpcClientStream grpc.ClientStream,
 	grpcServerStream grpc.ServerStream,
-	mappingFunc func(msg interface{}) T,
+	mappingFunc func(msg I) O,
 	errorCallback func(err error) error,
-) (*GrpcStreamDecorator[T], error) {
+) (*GrpcStreamDecorator[I, O], error) {
 	if grpcClientStream == nil && grpcServerStream == nil {
 		return nil, errors.New("client or server stream expected")
 	}
@@ -41,7 +41,7 @@ func NewGrpcStreamDecorator[T interface{}](
 		}
 	}
 
-	return &GrpcStreamDecorator[T]{
+	return &GrpcStreamDecorator[I, O]{
 		grpcClientStream: grpcClientStream,
 		grpcServerStream: grpcServerStream,
 		ctx:              internalCtx,
@@ -53,12 +53,12 @@ func NewGrpcStreamDecorator[T interface{}](
 	}, nil
 }
 
-func (w *GrpcStreamDecorator[T]) Fetch() (<-chan T, error) {
+func (w *GrpcStreamDecorator[T, O]) Fetch() (<-chan O, error) {
 	if w.streamChannel != nil {
 		return nil, errors.New("stream already has listener")
 	}
 
-	channel := make(chan T, w.channelSize)
+	channel := make(chan O, w.channelSize)
 	w.streamChannel = &channel
 
 	var recv recvMessage
@@ -72,19 +72,32 @@ func (w *GrpcStreamDecorator[T]) Fetch() (<-chan T, error) {
 		defer close(channel)
 
 		for {
-			var msg T
-			err := recv.RecvMsg(&msg)
+			if w.mapFunc != nil {
+				var msg T
+				err := recv.RecvMsg(&msg)
 
-			if err != nil {
-				err = w.errorCallback(err)
 				if err != nil {
-					return
+					err = w.errorCallback(err)
+					if err != nil {
+						return
+					}
 				}
+
+				channel <- w.mapFunc(msg)
+
+			} else {
+				var msg O
+				err := recv.RecvMsg(&msg)
+
+				if err != nil {
+					err = w.errorCallback(err)
+					if err != nil {
+						return
+					}
+				}
+
+				channel <- msg
 			}
-
-			mappedMsg := w.mapFunc(msg)
-
-			channel <- mappedMsg
 
 			select {
 			case <-w.ctx.Done():
@@ -97,6 +110,6 @@ func (w *GrpcStreamDecorator[T]) Fetch() (<-chan T, error) {
 	return channel, nil
 }
 
-func (w *GrpcStreamDecorator[T]) Release() {
+func (w *GrpcStreamDecorator[I, O]) Release() {
 	w.terminationFunc()
 }
