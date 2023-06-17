@@ -107,7 +107,7 @@ type GrpcClientConfiguration[T interface{}] struct {
 	ServerStream                  grpc.ServerStream
 	ClientStream                  grpc.ClientStream
 	MessagesCallback              func(ctx context.Context, grpcClient types.GrpcClient[T], msg *T) error
-	ErrorsCallback                *func(grpcClient types.GrpcClient[T], err error) error
+	ErrorsCallback                func(grpcClient types.GrpcClient[T], err error) error
 	SkipMessagesIfClientWithoutId bool
 	MessagesChannelSize           *int
 	GenerateId                    bool
@@ -119,7 +119,7 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (types.Grpc
 		return err
 	}
 	if config.ErrorsCallback != nil {
-		errCallback = *config.ErrorsCallback
+		errCallback = config.ErrorsCallback
 	}
 
 	size := 100
