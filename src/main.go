@@ -62,7 +62,7 @@ type GrpcStreamDecoratorConfiguration[T interface{}] struct {
 	ServerStream grpc.ServerStream
 	ClientStream grpc.ClientStream
 	ChannelSize  *int
-	mappingFunc  func(msg interface{}) T
+	MappingFunc  func(msg interface{}) T
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -76,8 +76,8 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 		return nil, errors.New("channel size should be greater than zero")
 	}
 
-	if config.mappingFunc == nil {
-		config.mappingFunc = func(msg interface{}) T {
+	if config.MappingFunc == nil {
+		config.MappingFunc = func(msg interface{}) T {
 			return msg
 		}
 	}
@@ -87,7 +87,7 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 		size,
 		config.ClientStream,
 		config.ServerStream,
-		config.mappingFunc,
+		config.MappingFunc,
 	)
 	if err != nil {
 		return nil, err
