@@ -89,6 +89,9 @@ func (gc *GrpcClient[T]) Listen() error {
 			var empty T
 			return empty
 		},
+		func(err error) error {
+			return gc.errorHandler(gc, err)
+		},
 	)
 	if err != nil {
 		return err

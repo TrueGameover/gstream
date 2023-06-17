@@ -58,11 +58,12 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 }
 
 type GrpcStreamDecoratorConfiguration[T interface{}] struct {
-	Ctx          context.Context
-	ServerStream grpc.ServerStream
-	ClientStream grpc.ClientStream
-	ChannelSize  *int
-	MappingFunc  func(msg interface{}) T
+	Ctx           context.Context
+	ServerStream  grpc.ServerStream
+	ClientStream  grpc.ClientStream
+	ChannelSize   *int
+	MappingFunc   func(msg interface{}) T
+	ErrorCallback func(err error) error
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -94,6 +95,7 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 		config.ClientStream,
 		config.ServerStream,
 		config.MappingFunc,
+		config.ErrorCallback,
 	)
 	if err != nil {
 		return nil, err

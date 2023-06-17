@@ -14,6 +14,7 @@ type GrpcStreamDecorator[T interface{}] struct {
 	channelSize      int
 	terminationFunc  context.CancelFunc
 	mapFunc          func(msg interface{}) T
+	errorCallback    func(err error) error
 }
 
 type recvMessage interface {
@@ -26,12 +27,19 @@ func NewGrpcStreamDecorator[T interface{}](
 	grpcClientStream grpc.ClientStream,
 	grpcServerStream grpc.ServerStream,
 	mappingFunc func(msg interface{}) T,
+	errorCallback func(err error) error,
 ) (*GrpcStreamDecorator[T], error) {
 	if grpcClientStream == nil && grpcServerStream == nil {
 		return nil, errors.New("client or server stream expected")
 	}
 
 	internalCtx, cancelFunc := context.WithCancel(ctx)
+
+	if errorCallback == nil {
+		errorCallback = func(err error) error {
+			return err
+		}
+	}
 
 	return &GrpcStreamDecorator[T]{
 		grpcClientStream: grpcClientStream,
@@ -41,6 +49,7 @@ func NewGrpcStreamDecorator[T interface{}](
 		channelSize:      channelSize,
 		terminationFunc:  cancelFunc,
 		mapFunc:          mappingFunc,
+		errorCallback:    errorCallback,
 	}, nil
 }
 
@@ -67,7 +76,10 @@ func (w *GrpcStreamDecorator[T]) Fetch() (<-chan T, error) {
 			err := recv.RecvMsg(&msg)
 
 			if err != nil {
-				return
+				err = w.errorCallback(err)
+				if err != nil {
+					return
+				}
 			}
 
 			mappedMsg := w.mapFunc(msg)
