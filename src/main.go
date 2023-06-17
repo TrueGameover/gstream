@@ -57,15 +57,16 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 	return observer, nil
 }
 
-type GrpcStreamDecoratorConfiguration struct {
+type GrpcStreamDecoratorConfiguration[T interface{}] struct {
 	Ctx          context.Context
 	ServerStream grpc.ServerStream
 	ClientStream grpc.ClientStream
 	ChannelSize  *int
+	mappingFunc  func(msg interface{}) T
 }
 
 //goland:noinspection GoUnusedExportedFunction
-func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfiguration) (types.GrpcStreamDecorator[T], error) {
+func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfiguration[T]) (types.GrpcStreamDecorator[T], error) {
 	size := 100
 	if config.ChannelSize != nil {
 		size = *config.ChannelSize
@@ -75,11 +76,18 @@ func NewGrpcStreamDecorator[T interface{}](config GrpcStreamDecoratorConfigurati
 		return nil, errors.New("channel size should be greater than zero")
 	}
 
+	if config.mappingFunc == nil {
+		config.mappingFunc = func(msg interface{}) T {
+			return msg
+		}
+	}
+
 	streamDec, err := receive.NewGrpcStreamDecorator[T](
 		config.Ctx,
 		size,
 		config.ClientStream,
 		config.ServerStream,
+		config.mappingFunc,
 	)
 	if err != nil {
 		return nil, err
