@@ -62,7 +62,7 @@ type GrpcStreamDecoratorConfiguration[I interface{}, O interface{}] struct {
 	ServerStream  grpc.ServerStream
 	ClientStream  grpc.ClientStream
 	ChannelSize   *int
-	MappingFunc   func(msg I) O
+	MappingFunc   func(msg *I) O
 	ErrorCallback func(err error) error
 }
 

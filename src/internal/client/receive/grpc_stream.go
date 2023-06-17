@@ -13,7 +13,7 @@ type GrpcStreamDecorator[I interface{}, O interface{}] struct {
 	streamChannel    *chan O
 	channelSize      int
 	terminationFunc  context.CancelFunc
-	mapFunc          func(msg I) O
+	mapFunc          func(msg *I) O
 	errorCallback    func(err error) error
 }
 
@@ -26,7 +26,7 @@ func NewGrpcStreamDecorator[I interface{}, O interface{}](
 	channelSize int,
 	grpcClientStream grpc.ClientStream,
 	grpcServerStream grpc.ServerStream,
-	mappingFunc func(msg I) O,
+	mappingFunc func(msg *I) O,
 	errorCallback func(err error) error,
 ) (*GrpcStreamDecorator[I, O], error) {
 	if grpcClientStream == nil && grpcServerStream == nil {
@@ -83,7 +83,7 @@ func (w *GrpcStreamDecorator[T, O]) Fetch() (<-chan O, error) {
 					}
 				}
 
-				channel <- w.mapFunc(msg)
+				channel <- w.mapFunc(&msg)
 
 			} else {
 				var msg O
