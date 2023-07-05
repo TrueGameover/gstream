@@ -31,11 +31,7 @@ type GrpcStreamDecorator[I interface{}, O interface{}] interface {
 type Observer[T interface{}] interface {
 	Publish(element T) bool
 	PublishWithWaiting(ctx context.Context, element T)
-	Subscribe(subscriber Subscriber[T]) uint64
+	Subscribe(func(T) bool) uint64
 	Unsubscribe(id uint64)
 	Release()
-}
-
-type Subscriber[T interface{}] interface {
-	Received(T) bool
 }

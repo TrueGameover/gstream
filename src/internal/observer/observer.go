@@ -24,9 +24,9 @@ func (h *ObserverImpl[T]) Publish(element T) bool {
 	ack := false
 
 	h.subscribers.Range(func(key, value any) bool {
-		s := value.(types.Subscriber[T])
+		s := value.(func(T) bool)
 
-		if s.Received(element) {
+		if s(element) {
 			ack = true
 		}
 
@@ -52,7 +52,7 @@ func (h *ObserverImpl[T]) PublishWithWaiting(ctx context.Context, element T) {
 	}
 }
 
-func (h *ObserverImpl[T]) Subscribe(s types.Subscriber[T]) uint64 {
+func (h *ObserverImpl[T]) Subscribe(s func(T) bool) uint64 {
 	id := h.subscribersCounter.Add(1)
 
 	h.subscribers.Store(id, s)
