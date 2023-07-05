@@ -29,7 +29,8 @@ type GrpcStreamDecorator[I interface{}, O interface{}] interface {
 }
 
 type Observer[T interface{}] interface {
-	Publish(element T)
+	Publish(element T) bool
+	PublishWithWaiting(ctx context.Context, element T)
 	Subscribe(subscriber Subscriber[T])
 	Release()
 }

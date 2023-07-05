@@ -133,7 +133,11 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (types.Grpc
 	return cl, nil
 }
 
+type ObserverConfiguration struct {
+	WaitingRepeatInterval time.Duration
+}
+
 //goland:noinspection GoUnusedExportedFunction
-func NewObserver[T interface{}]() (types.Observer[T], error) {
-	return observer.NewObserverImpl[T](), nil
+func NewObserver[T interface{}](config ObserverConfiguration) (types.Observer[T], error) {
+	return observer.NewObserverImpl[T](config.WaitingRepeatInterval), nil
 }
