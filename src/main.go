@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/TrueGameover/gstream/src/internal/client"
 	"github.com/TrueGameover/gstream/src/internal/client/receive"
+	"github.com/TrueGameover/gstream/src/internal/observer"
 	"github.com/TrueGameover/gstream/src/internal/stream"
 	"github.com/TrueGameover/gstream/src/types"
 	"google.golang.org/grpc"
@@ -45,16 +46,17 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 		subscribersWait = *config.SubscribersCheckInterval
 	}
 
-	observer := stream.NewFixedSizeObserver[T](
+	o := stream.NewFixedSizeObserver[T](
 		config.Ctx,
 		size,
 		elementsWait,
 		subscribersWait,
 		config.SkipOnFail,
 		config.SkipPublishWithoutSubscribers,
+		false,
 	)
 
-	return observer, nil
+	return o, nil
 }
 
 type GrpcStreamDecoratorConfiguration[I interface{}, O interface{}] struct {
@@ -129,4 +131,9 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (types.Grpc
 	)
 
 	return cl, nil
+}
+
+//goland:noinspection GoUnusedExportedFunction
+func NewObserver[T interface{}]() (types.Observer[T], error) {
+	return observer.NewObserverImpl[T](), nil
 }

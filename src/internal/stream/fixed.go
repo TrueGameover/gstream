@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -17,11 +18,19 @@ type FixedSizeObserver[T interface{}] struct {
 	skipElements            bool
 	skipWithoutSubscribers  bool
 	terminationFunc         context.CancelFunc
+	messagesCounter         atomic.Uint64
+	ackRequired             bool
+	ackMessagesChannel      chan uint64
 }
 
 type channelBag[T interface{}] struct {
 	ch  chan T
 	ctx context.Context
+}
+
+type identifiedMessage[T interface{}] struct {
+	id      uint64
+	payload T
 }
 
 func NewFixedSizeObserver[T interface{}](
@@ -31,6 +40,7 @@ func NewFixedSizeObserver[T interface{}](
 	waitSubscribersInterval time.Duration,
 	skipElements bool,
 	skipWithoutSubscribers bool,
+	acquiringRequired bool,
 ) *FixedSizeObserver[T] {
 	l := list.New()
 	l.Init()
@@ -51,6 +61,8 @@ func NewFixedSizeObserver[T interface{}](
 		skipElements:            skipElements,
 		skipWithoutSubscribers:  skipWithoutSubscribers,
 		terminationFunc:         cancel,
+		ackRequired:             acquiringRequired,
+		ackMessagesChannel:      make(chan uint64, maxSize),
 	}
 
 	go obj.dispatchToChannels(internalCtx)
@@ -58,11 +70,19 @@ func NewFixedSizeObserver[T interface{}](
 	return &obj
 }
 
-func (q *FixedSizeObserver[T]) Publish(element T) {
+func (q *FixedSizeObserver[T]) Publish(element T) uint64 {
 	if q.subscribersBag.Len() == 0 && q.skipWithoutSubscribers {
-		return
+		return 0
 	}
 
+	msgId := q.messagesCounter.Add(1)
+
+	q.internalPublish(element, msgId)
+
+	return msgId
+}
+
+func (q *FixedSizeObserver[T]) internalPublish(element T, msgId uint64) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
@@ -75,10 +95,13 @@ func (q *FixedSizeObserver[T]) Publish(element T) {
 		}
 	}
 
-	q.elementsList.PushBack(element)
+	q.elementsList.PushBack(identifiedMessage[T]{
+		id:      msgId,
+		payload: element,
+	})
 }
 
-func (q *FixedSizeObserver[T]) pop() *T {
+func (q *FixedSizeObserver[T]) pop() *identifiedMessage[T] {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
@@ -87,7 +110,7 @@ func (q *FixedSizeObserver[T]) pop() *T {
 	return element
 }
 
-func (q *FixedSizeObserver[T]) catchHead() *T {
+func (q *FixedSizeObserver[T]) catchHead() *identifiedMessage[T] {
 	head := q.elementsList.Front()
 
 	if head == nil {
@@ -96,7 +119,7 @@ func (q *FixedSizeObserver[T]) catchHead() *T {
 
 	q.elementsList.Remove(head)
 
-	element, ok := head.Value.(T)
+	element, ok := head.Value.(identifiedMessage[T])
 
 	if !ok {
 		return nil
@@ -128,9 +151,9 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 			continue
 		}
 
-		head := q.pop()
+		internalMsg := q.pop()
 
-		if head == nil {
+		if internalMsg == nil {
 			time.Sleep(q.waitElementsInterval)
 			continue
 		}
@@ -154,7 +177,7 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 
 			// skip on sending problems
 			select {
-			case bag.ch <- *head:
+			case bag.ch <- internalMsg.payload:
 				hasReceivers = true
 			default:
 			}
@@ -164,7 +187,7 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 
 		if !hasReceivers && !q.skipElements {
 			// message not delivered, push it again
-			q.Publish(*head)
+			q.internalPublish(internalMsg.payload, internalMsg.id)
 		}
 	}
 }
@@ -194,4 +217,15 @@ func (q *FixedSizeObserver[T]) Release() {
 			subscriber = q.removeBagAndGoNext(subscriber, &bag)
 		}
 	}
+
+	close(q.ackMessagesChannel)
+}
+
+func (q *FixedSizeObserver[T]) Ack(msgId uint64) {
+	//q.ackMessagesChannel <- msgId
+	panic("not implemented")
+}
+
+func (q *FixedSizeObserver[T]) WaitAck(msgId uint64) {
+	panic("not implemented")
 }

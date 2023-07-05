@@ -6,10 +6,12 @@ import (
 )
 
 type FixedSizeObserver[T interface{}] interface {
-	Publish(element T)
+	Publish(element T) uint64
 	Subscribe(ctx context.Context) <-chan T
 	GetLength() int
 	Release()
+	Ack(msgId uint64)
+	WaitAck(msgId uint64)
 }
 
 type GrpcClient[T interface{}] interface {
@@ -24,4 +26,14 @@ type GrpcClient[T interface{}] interface {
 type GrpcStreamDecorator[I interface{}, O interface{}] interface {
 	Fetch() (<-chan O, error)
 	Release()
+}
+
+type Observer[T interface{}] interface {
+	Publish(element T)
+	Subscribe(subscriber Subscriber[T])
+	Release()
+}
+
+type Subscriber[T interface{}] interface {
+	Received(T) bool
 }
