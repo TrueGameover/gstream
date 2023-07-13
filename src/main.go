@@ -60,12 +60,12 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 }
 
 type GrpcStreamDecoratorConfiguration[I interface{}, O interface{}] struct {
-	Ctx           context.Context
-	ServerStream  grpc.ServerStream
-	ClientStream  grpc.ClientStream
-	ChannelSize   *int
-	MappingFunc   func(msg *I) O
-	ErrorCallback func(err error) error
+	Ctx                  context.Context
+	ServerStream         grpc.ServerStream
+	ClientStreamProvider func() (grpc.ClientStream, error)
+	ChannelSize          *int
+	MappingFunc          func(msg *I) O
+	ErrorCallback        func(err error) error
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -82,7 +82,7 @@ func NewGrpcStreamDecorator[I interface{}, O interface{}](config GrpcStreamDecor
 	streamDec, err := receive.NewGrpcStreamDecorator[I, O](
 		config.Ctx,
 		size,
-		config.ClientStream,
+		config.ClientStreamProvider,
 		config.ServerStream,
 		config.MappingFunc,
 		config.ErrorCallback,
@@ -97,7 +97,7 @@ func NewGrpcStreamDecorator[I interface{}, O interface{}](config GrpcStreamDecor
 type GrpcClientConfiguration[T interface{}] struct {
 	Ctx                           context.Context
 	ServerStream                  grpc.ServerStream
-	ClientStream                  grpc.ClientStream
+	ClientStreamProvider          func() (grpc.ClientStream, error)
 	MessagesCallback              func(ctx context.Context, grpcClient types.GrpcClient[T], msg *T) error
 	ErrorsCallback                func(grpcClient types.GrpcClient[T], err error) error
 	SkipMessagesIfClientWithoutId bool
@@ -122,7 +122,7 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (types.Grpc
 	cl := client.NewGrpcClient(
 		config.Ctx,
 		config.ServerStream,
-		config.ClientStream,
+		config.ClientStreamProvider,
 		config.MessagesCallback,
 		errCallback,
 		config.SkipMessagesIfClientWithoutId,

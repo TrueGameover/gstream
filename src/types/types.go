@@ -26,6 +26,7 @@ type GrpcClient[T interface{}] interface {
 type GrpcStreamDecorator[I interface{}, O interface{}] interface {
 	Fetch() (<-chan O, error)
 	Release()
+	GetStreamContext() context.Context
 }
 
 type Observer[T interface{}] interface {
