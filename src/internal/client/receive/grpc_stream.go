@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"google.golang.org/grpc"
+	"sync"
 )
 
 type GrpcStreamDecorator[I interface{}, O interface{}] struct {
@@ -62,6 +63,8 @@ func (w *GrpcStreamDecorator[T, O]) Fetch() (<-chan O, error) {
 	channel := make(chan O, w.channelSize)
 	w.streamChannel = &channel
 
+	wGroup := sync.WaitGroup{}
+	wGroup.Add(1)
 	go func() {
 		defer close(channel)
 
@@ -75,12 +78,15 @@ func (w *GrpcStreamDecorator[T, O]) Fetch() (<-chan O, error) {
 			clientStream, err := w.grpcClientStreamProvider()
 			if err != nil {
 				_ = w.errorCallback(err)
+				wGroup.Done()
 				return
 			}
 
 			w.streamCtx = clientStream.Context()
 			recv = clientStream
 		}
+
+		wGroup.Done()
 
 		for {
 			if w.mapFunc != nil {
@@ -117,6 +123,9 @@ func (w *GrpcStreamDecorator[T, O]) Fetch() (<-chan O, error) {
 			}
 		}
 	}()
+
+	// wait stream init
+	wGroup.Wait()
 
 	return channel, nil
 }
