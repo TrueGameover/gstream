@@ -21,6 +21,9 @@ type FixedSizeObserver[T interface{}] struct {
 	messagesCounter         atomic.Uint64
 	ackRequired             bool
 	ackMessagesChannel      chan uint64
+
+	deliveryRetriesMaxCount int
+	deliveryRetries         map[uint64]int
 }
 
 type channelBag[T interface{}] struct {
@@ -41,6 +44,7 @@ func NewFixedSizeObserver[T interface{}](
 	skipElements bool,
 	skipWithoutSubscribers bool,
 	acquiringRequired bool,
+	retriesMaxCount int,
 ) *FixedSizeObserver[T] {
 	l := list.New()
 	l.Init()
@@ -63,6 +67,8 @@ func NewFixedSizeObserver[T interface{}](
 		terminationFunc:         cancel,
 		ackRequired:             acquiringRequired,
 		ackMessagesChannel:      make(chan uint64, maxSize),
+		deliveryRetriesMaxCount: retriesMaxCount,
+		deliveryRetries:         map[uint64]int{},
 	}
 
 	go obj.dispatchToChannels(internalCtx)
@@ -165,12 +171,14 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 
 			if !ok {
 				subscriber = q.removeBagAndGoNext(subscriber, nil)
+				delete(q.deliveryRetries, internalMsg.id)
 				continue
 			}
 
 			select {
 			case <-bag.ctx.Done():
 				subscriber = q.removeBagAndGoNext(subscriber, &bag)
+				delete(q.deliveryRetries, internalMsg.id)
 				continue
 			default:
 			}
@@ -179,6 +187,7 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 			select {
 			case bag.ch <- internalMsg.payload:
 				hasReceivers = true
+				delete(q.deliveryRetries, internalMsg.id)
 			default:
 			}
 
@@ -186,8 +195,19 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 		}
 
 		if !hasReceivers && !q.skipElements {
-			// message not delivered, push it again
-			q.internalPublish(internalMsg.payload, internalMsg.id)
+			retriesCount := q.deliveryRetries[internalMsg.id]
+			retriesCount++
+
+			// repeating to max retries count
+			if retriesCount < q.deliveryRetriesMaxCount {
+				// message not delivered, push it again
+				q.internalPublish(internalMsg.payload, internalMsg.id)
+
+				q.deliveryRetries[internalMsg.id] = retriesCount
+
+			} else {
+				delete(q.deliveryRetries, internalMsg.id)
+			}
 		}
 	}
 }

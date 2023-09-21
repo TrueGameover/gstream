@@ -23,6 +23,8 @@ type FixedSizeObserverConfiguration struct {
 	ElementsCheckInterval *time.Duration
 	// SubscribersCheckInterval sleep time between checking of subscribers
 	SubscribersCheckInterval *time.Duration
+	// SkipAfterDeliveryRetriesCount drop messages after retries count
+	SkipAfterDeliveryRetriesCount *int
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -46,6 +48,11 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 		subscribersWait = *config.SubscribersCheckInterval
 	}
 
+	deliveryRetries := 1000
+	if config.SkipAfterDeliveryRetriesCount != nil {
+		deliveryRetries = *config.SkipAfterDeliveryRetriesCount
+	}
+
 	o := stream.NewFixedSizeObserver[T](
 		config.Ctx,
 		size,
@@ -54,6 +61,7 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 		config.SkipOnFail,
 		config.SkipPublishWithoutSubscribers,
 		false,
+		deliveryRetries,
 	)
 
 	return o, nil
