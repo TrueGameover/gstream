@@ -186,6 +186,14 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 			case bag.ch <- internalMsg.payload:
 				hasReceivers = true
 			default:
+				retriesCount := q.deliveryRetries[internalMsg.id]
+				retriesCount++
+
+				if retriesCount >= q.deliveryRetriesMaxCount {
+					delete(q.deliveryRetries, internalMsg.id)
+					subscriber = q.removeBagAndGoNext(subscriber, &bag)
+					continue
+				}
 			}
 
 			subscriber = subscriber.Next()
