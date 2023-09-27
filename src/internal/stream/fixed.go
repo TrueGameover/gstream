@@ -171,14 +171,12 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 
 			if !ok {
 				subscriber = q.removeBagAndGoNext(subscriber, nil)
-				delete(q.deliveryRetries, internalMsg.id)
 				continue
 			}
 
 			select {
 			case <-bag.ctx.Done():
 				subscriber = q.removeBagAndGoNext(subscriber, &bag)
-				delete(q.deliveryRetries, internalMsg.id)
 				continue
 			default:
 			}
@@ -187,7 +185,6 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 			select {
 			case bag.ch <- internalMsg.payload:
 				hasReceivers = true
-				delete(q.deliveryRetries, internalMsg.id)
 			default:
 			}
 
@@ -208,6 +205,8 @@ func (q *FixedSizeObserver[T]) dispatchToChannels(ctx context.Context) {
 			} else {
 				delete(q.deliveryRetries, internalMsg.id)
 			}
+		} else {
+			delete(q.deliveryRetries, internalMsg.id)
 		}
 	}
 }
