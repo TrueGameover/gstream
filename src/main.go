@@ -35,7 +35,7 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 	}
 
 	if size < 0 {
-		return nil, errors.New("size should be greater or equal than zero")
+		return nil, errors.New("size should be greater or equal to zero")
 	}
 
 	elementsWait := time.Millisecond * 10
@@ -83,8 +83,8 @@ func NewGrpcStreamDecorator[I interface{}, O interface{}](config GrpcStreamDecor
 		size = *config.ChannelSize
 	}
 
-	if size < 1 {
-		return nil, errors.New("channel size should be greater than zero")
+	if size < 0 {
+		return nil, errors.New("channel size should be greater or equal to zero")
 	}
 
 	streamDec, err := receive.NewGrpcStreamDecorator[I, O](
