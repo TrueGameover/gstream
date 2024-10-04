@@ -121,7 +121,7 @@ func (w *GrpcStreamDecorator[T, O]) Fetch() (<-chan O, error) {
 			}
 
 			if w.perMessageAck {
-				var msg T
+				var msg struct{}
 				err := recv.SendMsg(&msg)
 
 				if err != nil {
