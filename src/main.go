@@ -34,8 +34,8 @@ func NewFixedSizeObserver[T interface{}](config FixedSizeObserverConfiguration) 
 		size = *config.SubscribersChannelLength
 	}
 
-	if size < 1 {
-		return nil, errors.New("size should be greater than zero")
+	if size < 0 {
+		return nil, errors.New("size should be greater or equal than zero")
 	}
 
 	elementsWait := time.Millisecond * 10
