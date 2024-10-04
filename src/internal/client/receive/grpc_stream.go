@@ -17,15 +17,18 @@ type GrpcStreamDecorator[I interface{}, O interface{}] struct {
 	terminationFunc          context.CancelFunc
 	mapFunc                  func(msg *I) O
 	errorCallback            func(err error) error
+	perMessageAck            bool
 }
 
 type recvMessage interface {
 	RecvMsg(m interface{}) error
+	SendMsg(m interface{}) error
 }
 
 func NewGrpcStreamDecorator[I interface{}, O interface{}](
 	ctx context.Context,
 	channelSize int,
+	perMessageAck bool,
 	grpcClientStreamProvider func() (grpc.ClientStream, error),
 	grpcServerStream grpc.ServerStream,
 	mappingFunc func(msg *I) O,
@@ -52,6 +55,7 @@ func NewGrpcStreamDecorator[I interface{}, O interface{}](
 		terminationFunc:          cancelFunc,
 		mapFunc:                  mappingFunc,
 		errorCallback:            errorCallback,
+		perMessageAck:            perMessageAck,
 	}, nil
 }
 
@@ -114,6 +118,18 @@ func (w *GrpcStreamDecorator[T, O]) Fetch() (<-chan O, error) {
 				}
 
 				channel <- msg
+			}
+
+			if w.perMessageAck {
+				var msg T
+				err := recv.SendMsg(&msg)
+
+				if err != nil {
+					err = w.errorCallback(err)
+					if err != nil {
+						return
+					}
+				}
 			}
 
 			select {

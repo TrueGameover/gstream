@@ -74,6 +74,7 @@ type GrpcStreamDecoratorConfiguration[I interface{}, O interface{}] struct {
 	ChannelSize          *int
 	MappingFunc          func(msg *I) O
 	ErrorCallback        func(err error) error
+	PerMessageAck        bool
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -90,6 +91,7 @@ func NewGrpcStreamDecorator[I interface{}, O interface{}](config GrpcStreamDecor
 	streamDec, err := receive.NewGrpcStreamDecorator[I, O](
 		config.Ctx,
 		size,
+		config.PerMessageAck,
 		config.ClientStreamProvider,
 		config.ServerStream,
 		config.MappingFunc,
@@ -111,6 +113,7 @@ type GrpcClientConfiguration[T interface{}] struct {
 	SkipMessagesIfClientWithoutId bool
 	MessagesChannelSize           *int
 	GenerateId                    bool
+	PerMessageAck                 bool
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -136,6 +139,7 @@ func NewGrpcClient[T interface{}](config GrpcClientConfiguration[T]) (types.Grpc
 		config.SkipMessagesIfClientWithoutId,
 		size,
 		config.GenerateId,
+		config.PerMessageAck,
 	)
 
 	return cl, nil

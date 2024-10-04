@@ -20,6 +20,7 @@ type GrpcClient[T interface{}] struct {
 	clientId                   *uuid.UUID
 	skipMessagesWhileWithoutId bool
 	messagesChannelSize        int
+	perMessageAck              bool
 }
 
 func NewGrpcClient[T interface{}](
@@ -31,6 +32,7 @@ func NewGrpcClient[T interface{}](
 	skipMessagesUntilClientIdNotSet bool,
 	messagesChannelSize int,
 	generateId bool,
+	perMessageAck bool,
 ) *GrpcClient[T] {
 	internalCtx, cancel := context.WithCancel(ctx)
 
@@ -50,6 +52,7 @@ func NewGrpcClient[T interface{}](
 		clientId:                   id,
 		skipMessagesWhileWithoutId: skipMessagesUntilClientIdNotSet,
 		messagesChannelSize:        messagesChannelSize,
+		perMessageAck:              perMessageAck,
 	}
 }
 
@@ -79,6 +82,7 @@ func (gc *GrpcClient[T]) Listen() error {
 	streamWrapper, err := receive.NewGrpcStreamDecorator[T, T](
 		gc.clientContext,
 		gc.messagesChannelSize,
+		gc.perMessageAck,
 		gc.grpcClientStreamProvider,
 		gc.grpcServerStream,
 		nil,
